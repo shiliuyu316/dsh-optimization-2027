@@ -1,10 +1,14 @@
 # dsh-optimization-2027
 
+English · [中文](README.md)
+
+![The panel](docs/panel.png)
+
 A DeepSeek Harness bundle that puts seven capabilities in one package — **reasoning-tier protocol + claim ledger + declarative custom tools + persistent PowerShell + prompt re-injection + read-only analyst briefs + a composer button panel** — plus the HTTP route that wires the panel to them.
 
 It is a derivative of [husongan/dsh-deepseek-2027](https://github.com/husongan/dsh-deepseek-2027) (MIT, see [Provenance and licence](#provenance-and-licence)): the mechanisms are kept, the implementations are rewritten, and the parts that measured wrong or granted too much authority are gone. **Almost every behavioural difference has a comment in the code explaining why the alternative was worse — the reasoning lives in each module's header, not in this README.**
 
-- Five test suites, **376 assertions** (67 / 18 / 161 / 121 / 9), all green
+- Five test suites, **382 assertions** (67 / 18 / 167 / 121 / 9), all green
 - No network access; reads nothing outside `<DSH_HOME>/plugin-data/dsh-optimization-2027/`
 - Twelve levels became five: at `off`, this plugin's extra cost for the request is **exactly 0 characters**
 
@@ -120,6 +124,38 @@ The five tools, measured in the shape the Host actually sends (`{name, descripti
 
 Read it this way: those 1100 tok of tool schemas are paid **on every request**, used or not; the protocol text is the half that a tier can change. The panel and `/dopt2027 levels` show the total rather than the protocol alone, because reporting only the protocol half understated the real bill by an order of magnitude.
 
+**Which number to multiply by.** The **second** number in the stats line under the composer — the "steps" figure — not the first one ("turns"), and not the "requests" count on the token-saver strip.
+
+The line reads `5 turns 416 steps · 96 tok/s`. The two are different units (`deriveStats()` in `@deepseek-ai/dsh-client-ui-chat/lib/client.js`):
+
+- **turns** = the number of distinct `turn` values, i.e. how many times you pressed Enter;
+- **steps** = the number of `assistant/message` records, i.e. **how many times the model was requested** — one message that calls three tools sends three more requests, so steps is always ≥ turns.
+
+The protocol text is rendered by `ctx.systemPrompt.context({ text })` on every `assemble()`, and the tool schemas go into every request's `tools` array — both ride on the **request**, so the unit price multiplies by **steps**. Verified: the screenshot taken at 416 steps matches exactly 416 `assistant/message` records when the session is filtered by time.
+
+```
+extra tokens ≈ unit price (table above) × the "steps" figure under the composer
+```
+
+For example, tier 2 over 416 steps → 1292 × 416 ≈ 537k tok.
+
+**Don't multiply the token-saver's "requests".** That counter lives in memory only — `dsh-plugin-save-token` counts requests it has seen since it loaded, and a plugin reload or a restart resets it (measured: 292 against a true 416, 124 short). Multiply by the Host's "steps", which is a persisted projection and fully recomputable.
+
+**Don't estimate from the output-side "48M tok".** That is uncached input plus cache reads — the same tokens sliced another way. Multiplying by it double-counts.
+
+**Unit price is not the bill.** The panel and `/dopt2027 levels` report the per-request figure and do not guess how many steps you will run. The real spend multiplies by steps and then gets the cache discount: the protocol text is injected at `ORDER_PROTOCOL = 310`, ahead of the conversation, so it is a stable prefix and later requests hit the prompt cache at cache price (Flash: ¥0.02/M hit vs ¥1/M miss — a 50× gap). Pricing 1292 × 416 = 537k tok at the miss price overstates it by dozens of times; in practice it lands in the ¥0.01 range.
+
+**What it actually costs.** Priced with the official Flash rates built into `dsh-whale-widget` (hit ¥0.02 / miss ¥1 / output ¥4 per million tokens, off-peak), tier 2 over 452 steps = 583,984 tok:
+
+| Case | Amount | Why |
+|---|---|---|
+| every request a cache hit | **¥0.012** | the contract is injected at `ORDER_PROTOCOL = 310`, ahead of the conversation |
+| measured 53% hit rate | **¥0.28** | what this machine actually saw |
+| no cache at all (the moment you switch tiers) | ¥0.58 | upper bound |
+| no cache + peak hours (9–12, 14–18) | ¥1.17 | worst case |
+
+**In practice: one to three fen.** The same conversation totals ¥27.22, so the plugin is **1.0%** of it — a cache hit costs 1/50 of a miss, and the protocol is the most stable part of the prefix.
+
 The numbers come from `protocolCost()`, computed from **the text actually rendered** and **the tool definitions actually registered** — change a rule or a tool description and the number changes with it, with no second table to fall out of sync. Tokens are estimated as `ceil(chars / 4)`: this text measured at 4 chars/token on this machine, but the real tokenizer belongs to the model, so the label says `tok` rather than pretending to be exact (an interleaved estimate puts `/4` at the lower bound; the true number may be 10–30% higher).
 
 **Bringing the 1100 tok down.** `shellEnabled: false` saves 221 tok (`shell2027` and `shell_reset` are never registered); a low-frequency tool can be deleted outright at the cost of the capability. **"Load it only when the model needs it" is not available on this machine** — the Host has a first-class `deferLoading` mechanism, but it requires the model side to support adding tools mid-conversation (`toolUpdate`). The `workbuddy` route here does not declare that capability, so `dsh-llm` strips the `deferLoading` flag and sends every tool anyway; worse, `dsh-llm-pi-ai`'s `toolsOf()` **drops** any tool that carries the flag without being lifted by the projection, which means the capability disappears.
@@ -213,6 +249,8 @@ Three design points:
 The automatic half hangs off `agent/pre-step`, and it is subscribed **whether or not the threshold is on**: the threshold is a per-session setting now, and a hook that only exists when the config file says a positive number can never be switched on without a restart. The handler reads this session's threshold first and lets the step through when it is 0.
 
 The threshold is off by default (0). The panel's "auto re-arm" field and `/dopt2027 rearm <n>` both write it, and the next request uses the new value — no restart.
+
+Like the tier, the threshold is written per session: `<DSH_HOME>/plugin-data/dsh-optimization-2027/rearm/rearm-<session>.json` (temp file plus an atomic `renameSync`). A restart therefore resumes the number you last set for that session instead of falling back to the config default; a session that never touched the field keeps no file and follows `config.rearmDistance`. **0 is written to disk** — 0 is the real choice "off", not "never set", and the two have to stay distinguishable on disk.
 
 ---
 
@@ -342,7 +380,7 @@ rearm/rearm-<session>.json     automatic re-arm threshold; 0 is a stored value t
 
 ## Tests
 
-Five suites, all assertion-based, all failing with a non-zero exit code. 376 checks in total:
+Five suites, all assertion-based, all failing with a non-zero exit code. 382 checks in total:
 
 ```powershell
 # Pure logic: protocol rendering, ledger refusal rules, placeholder escaping, brief classification, cost maths
@@ -353,7 +391,7 @@ $env:ELECTRON_RUN_AS_NODE='1'; & 'D:\DSH\DeepSeek Harness.exe' test\shell-live.m
 
 # Runs apply() against a stub context: Config protocol, both contexts, five tools, every subcommand,
 # the route's six refusals, per-session agent lookup, tier-0 tool withholding, re-arm retire + drift re-arm
-$env:ELECTRON_RUN_AS_NODE='1'; & 'D:\DSH\DeepSeek Harness.exe' test\mount.mjs       # 161
+$env:ELECTRON_RUN_AS_NODE='1'; & 'D:\DSH\DeepSeek Harness.exe' test\mount.mjs       # 167
 
 # Runs client.js against a stub loader and stub React: module id, slot registration shape,
 # stylesheet de-duplication, wheel behaviour, cost highlighting, panel structure
@@ -395,7 +433,7 @@ One conclusion from upstream's `levels.js` is inherited whole and quoted in this
 - **`claim` as one tool with three actions**: upstream has three separate ledger tools.
 - **Tier 0 withholds this plugin's own tools inside `system-prompt/assemble`**: upstream has no such hook.
 - **The `-Command -` two-way encoding fix** (base64 body plus explicit `Console::OutputEncoding`): upstream's `psLiteral` covers template values only, not stdin/stdout encoding.
-- **Five suites, 376 assertions**: upstream has three files under `_test/` (`fake-ssh`, `integration-test`, `schema-check`), all replaced here.
+- **Five suites, 382 assertions**: upstream has three files under `_test/` (`fake-ssh`, `integration-test`, `schema-check`), all replaced here.
 
 ### Deliberately not carried over
 
