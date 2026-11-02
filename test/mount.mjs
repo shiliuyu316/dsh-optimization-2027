@@ -794,6 +794,31 @@ for (const item of restart.record.effects) {
   } catch {}
 }
 
+// A third mount over the same DSH_HOME is a second restart. It is the only
+// thing here that proves the numbers above came off the disk: the mount that
+// wrote them still holds them in its own cache, so a read() that ignored the
+// file entirely would pass every assertion above.
+const reread = makeContext()
+apply(reread.ctx, Config['~standard'].validate({ level: 0 }).value)
+const rereadRoute = await callOn(reread.record.routes[0], { action: 'state', session: 'agent-3' })
+check(
+  'a second restart still reports the threshold the first one wrote',
+  rereadRoute.json?.rearmDistance === 240,
+  String(rereadRoute.json?.rearmDistance),
+)
+const rereadOff = await callOn(reread.record.routes[0], { action: 'state', session: 'agent-7' })
+check(
+  'a threshold set to 0 survives the restart as 0, not as absent',
+  rereadOff.json?.rearmDistance === 0,
+  String(rereadOff.json?.rearmDistance),
+)
+const rereadFresh = await callOn(reread.record.routes[0], { action: 'state', session: 'agent-4' })
+check(
+  'a session that never chose still reports the config default after a restart',
+  rereadFresh.json?.rearmDistance === 0,
+  String(rereadFresh.json?.rearmDistance),
+)
+
 // ------------------------------------------------------- agent disposal reaps
 //
 // A destroyed agent must not keep a shell until the idle reaper reaches it. The
@@ -920,6 +945,30 @@ check('an agent with no session is left alone', headlessDecision.messages.length
     next,
   )
   check('switching it on takes effect on the very next step', switchedOn.messages.length === 1, String(switchedOn.messages.length))
+
+  // The same two numbers, read by a mount that never wrote them. A threshold
+  // that only survives inside the process that set it is not a setting, it is a
+  // variable; this is the assertion that says which one it is.
+  const rereadHook = reread.record.listeners.find((item) => item.name === 'agent/pre-step')
+  check('a restart keeps the drift hook subscribed', rereadHook !== undefined)
+  const persistedLoud = await rereadHook.handler(
+    { agent: { id: 'agent-loud', session: driftSession(400) }, signal: { aborted: false } },
+    next,
+  )
+  check(
+    'a threshold written before the restart still fires after it',
+    persistedLoud.messages.length === 1,
+    String(persistedLoud.messages.length),
+  )
+  const persistedQuiet = await rereadHook.handler(
+    { agent: { id: 'agent-7', session: driftSession(400) }, signal: { aborted: false } },
+    next,
+  )
+  check(
+    'a session left off before the restart stays off after it',
+    persistedQuiet.messages.length === 0,
+    String(persistedQuiet.messages.length),
+  )
 }
 
 // --------------------------------------------------------------- housekeeping
