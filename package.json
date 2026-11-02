@@ -1,6 +1,6 @@
 {
   "name": "dsh-optimization-2027",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "Five-tier reasoning protocol (0 = off) + claim ledger + read-only analyst briefs + JSON-declared custom tools + persistent PowerShell + prompt re-injection, as one DSH bundle. / 五档推理协议（0=off） + 结论台账 + 只读分析员 + 声明式自建工具 + 持久 PowerShell + 提示词重注入。",
   "license": "MIT",
