@@ -1,0 +1,6 @@
+# Normalise every text file to LF in the repository, whatever the checkout OS
+* text=auto eol=lf
+
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf

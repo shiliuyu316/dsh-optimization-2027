@@ -1,0 +1,69 @@
+{
+  "name": "dsh-optimization-2027",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Five-tier reasoning protocol (0 = off) + claim ledger + read-only analyst briefs + JSON-declared custom tools + persistent PowerShell + prompt re-injection, as one DSH bundle. / 五档推理协议（0=off） + 结论台账 + 只读分析员 + 声明式自建工具 + 持久 PowerShell + 提示词重注入。",
+  "license": "MIT",
+  "author": "shiliuyu316",
+  "contributors": [
+    "husongan (original @local/dsh-deepseek-2027)"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shiliuyu316/dsh-optimization-2027.git"
+  },
+  "homepage": "https://github.com/shiliuyu316/dsh-optimization-2027#readme",
+  "bugs": {
+    "url": "https://github.com/shiliuyu316/dsh-optimization-2027/issues"
+  },
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json",
+    "./icon": "./icon.svg",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "lib",
+    "test",
+    "cordis.patch.yml",
+    "icon.svg",
+    "locale",
+    "README.md",
+    "README.en.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "cordis",
+    "bundle",
+    "reasoning",
+    "claim-ledger",
+    "persistent-shell",
+    "powershell"
+  ],
+  "engines": {
+    "node": ">=20",
+    "dsh": ">=0.2.0-rc.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  }
+}

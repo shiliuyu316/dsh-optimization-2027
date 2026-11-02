@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Host-managed plugin state: never commit someone's ledger, tiers or tools
+plugin-data/
+.dsh/
+
+# Local machine scraps
+*.log
+*.tmp
+*.bak
+*~
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# npm
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+coverage/
+dist/

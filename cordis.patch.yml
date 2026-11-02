@@ -1,0 +1,44 @@
+# dsh-optimization-2027 bundle patch layer.
+#
+# One row, no global overrides: the plugin registers a reasoning-tier protocol
+# context, a custom-tool index context, five tools and one human command. Every
+# knob below is optional; the defaults are the ones documented in README.md.
+#
+# dataDir: where custom-tool .json/.md pairs and the claim ledger live. Leave
+# empty to use $DSH_HOME/plugin-data/dsh-optimization-2027.
+- insert:
+    - id: dsh-optimization-2027
+      name: 'dsh-optimization-2027'
+      config:
+        # level: 0 off (default), 1 light, 2 standard, 3 deep, 4 multi-agent.
+        # A new session has no stored tier and falls back to this value, so the
+        # default is the off switch: nobody asked for the protocol, and the
+        # person who wants rules presses one button. Tier 0 is the honest off
+        # switch: the context stays registered (a
+        # missing required context would be a defect) but renders an empty
+        # string, and the Host drops empty contexts along with the
+        # "Current runtime context" wrapper — 0 characters, 0 tokens, the same
+        # prompt a host without this plugin would send. Tier 4 is delegation
+        # boundaries on top of tier 3 — a different shape of work, not more of
+        # the same. Values outside 0-4 are clamped.
+        level: 0
+        # customTools: models declare tools as JSON (name/description/schema +
+        # command template) instead of injecting generated JavaScript into the
+        # Host process. Placeholder values are inserted as PowerShell single
+        # -quoted literals, so a parameter cannot inject a shell operator.
+        customToolsDir: ''
+        # shell: one long-lived PowerShell per agent, so cwd / variables /
+        # processes survive between calls. pwsh 7 is preferred and Windows
+        # PowerShell 5.1 works when it is the only one installed. Set
+        # shellEnabled:false to stay with one process per call.
+        shellEnabled: true
+        shellTimeoutMs: 60000
+        shellIdleMs: 900000
+        # rearmDistance: 0 turns automatic re-arm off. A positive value is the
+        # number of surface messages that may pass since the last runtime
+        # context before the plugin re-sends one on `agent/pre-step`. Measured
+        # on this machine over 18 sessions / 213 requests: median distance 145,
+        # p90 453, max 561, and only 19% of requests sat at distance 0. 120
+        # would therefore fire on 51% of requests, 300 on 30%. Each firing
+        # costs one snapshot — 1,993 chars at tier 4.
+        rearmDistance: 0

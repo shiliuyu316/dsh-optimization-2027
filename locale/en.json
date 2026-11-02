@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "dsh-optimization-2027",
+    "description": "Five-tier reasoning protocol (0 = off) + claim ledger + declarative custom tools + persistent PowerShell + prompt re-injection + read-only analyst, in one bundle. The protocol is re-read on every request, so an edit applies next step; custom tools may only declare JSON command templates, never load model-generated code into the Host process."
+  }
+}
